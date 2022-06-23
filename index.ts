@@ -20,12 +20,7 @@ console.log(`Websocket server works on port: ${PORT}`);
 wsServer.on('connection', (ws) => {
   ws.on('message', (data) => {
     console.log('received: ', data.toString());
-    const { command, value } = parseInputCommand(data);
-
-    if (command === 'draw_circle') {
-      const { x, y } = robot.getMousePos();
-      drawCircle(x, y, value);
-    }
+    const { command, value, length } = parseInputCommand(data);
 
     if (command === 'mouse_left') {
       const { x, y } = robot.getMousePos();
@@ -51,6 +46,21 @@ wsServer.on('connection', (ws) => {
       robot.moveMouse(x, y + value);
       ws.send(`mouse_down`);
     }
+
+    if (command === 'draw_circle') {
+      const { x, y } = robot.getMousePos();
+      drawCircle(x, y, value);
+    }
+
+    if (command === 'draw_square') {
+      const { x, y } = robot.getMousePos();
+      drawSquare(x, y, value);
+    }
+
+    if (command === 'draw_rectangle') {
+      const { x, y } = robot.getMousePos();
+      drawRectangle(x, y, value, length);
+    }
   });
 
   // ws.send('something');
@@ -61,20 +71,8 @@ wsServer.on('close', () => {
 });
 
 function drawCircle(cursorX: number, cursorY: number, radius: number) {
-  // robot.setMouseDelay(2);
-
-  // var twoPI = Math.PI * 2.0;
-  // var screenSize = robot.getScreenSize();
-  // var height = screenSize.height / 2 - 10;
-  // var width = screenSize.width;
-
-  // for (var x = 0; x < width; x++) {
-  //   const y = height * Math.sin((twoPI * x) / width) + height;
-  //   robot.moveMouse(x, y);
-  // }
-
   robot.setMouseDelay(2);
-  console.log(cursorX, cursorY);
+
   const center = {
     x: cursorX,
     y: cursorY + radius,
@@ -98,29 +96,28 @@ function drawCircle(cursorX: number, cursorY: number, radius: number) {
 }
 
 function parseInputCommand(line: any) {
-  const [command, value] = line.toString().split(' ');
+  const [command, value, length] = line.toString().split(' ');
   return {
     command,
     value: Number(value),
+    length: Number(length),
   };
 }
 
-const drawCircles = (cursorX: number, cursorY: number, radius: number) => {
-  const mousePos = robot.getMousePos();
-
-  const centerOfCircle = {
-    x: cursorX,
-    y: cursorY - radius,
-  };
-
+function drawSquare(cursorX: number, cursorY: number, size: number) {
   robot.mouseToggle('down');
-
-  for (let i = 0; i <= Math.PI * 2; i += 0.01) {
-    // Convert polar coordinates to cartesian
-    const x = mousePos.x + radius * Math.cos(i);
-    const y = mousePos.y + radius * Math.sin(i);
-
-    robot.dragMouse(x, y);
-  }
+  robot.moveMouseSmooth(cursorX + size, cursorY);
+  robot.moveMouseSmooth(cursorX + size, cursorY + size);
+  robot.moveMouseSmooth(cursorX, cursorY + size);
+  robot.moveMouseSmooth(cursorX, cursorY);
   robot.mouseToggle('up');
-};
+}
+
+function drawRectangle(cursorX: number, cursorY: number, width: number, length: number) {
+  robot.mouseToggle('down');
+  robot.moveMouseSmooth(cursorX + width, cursorY);
+  robot.moveMouseSmooth(cursorX + width, cursorY + length);
+  robot.moveMouseSmooth(cursorX, cursorY + length);
+  robot.moveMouseSmooth(cursorX, cursorY);
+  robot.mouseToggle('up');
+}
