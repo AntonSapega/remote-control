@@ -1,8 +1,10 @@
-import * as Jimp from 'jimp';
+import Jimp from 'jimp';
 import { httpServer } from './src/http_server/index.js';
 import * as robot from 'robotjs';
 import { WebSocketServer, WebSocket } from 'ws';
 import 'dotenv/config';
+import { createWriteStream } from 'fs';
+import { Readable } from 'stream';
 
 const HTTP_PORT = 3000;
 const PORT = +process.env.PORT;
@@ -12,13 +14,13 @@ httpServer.listen(HTTP_PORT);
 
 //********************* */
 
-const socket = new WebSocket(`ws://localhost:${PORT}`); //!!!!!!!!!!
+// const socket = new WebSocket(`ws://localhost:${PORT}`); //!!!!!!!!!!
 
 const wsServer = new WebSocketServer({ port: PORT });
 console.log(`Websocket server works on port: ${PORT}`);
 
 wsServer.on('connection', (ws) => {
-  ws.on('message', (data) => {
+  ws.on('message', async (data) => {
     console.log('received: ', data.toString());
     const { command, value, length } = parseInputCommand(data);
 
@@ -61,6 +63,19 @@ wsServer.on('connection', (ws) => {
       const { x, y } = robot.getMousePos();
       drawRectangle(x, y, value, length);
     }
+
+    if (command === 'prnt_scrn') {
+      const { x, y } = robot.getMousePos();
+      const screen = await makePrintScreen(ws, x, y);
+      // const writeStream = createWriteStream('http://localhost:3000/', );
+      // const readableStream = new Readable({
+      //   read() {
+      //     this.push(screen)
+      //   }
+      // });
+      // readableStream.push(screen);
+      ws.send(`prnt_scrn ${screen}`);
+    }
   });
 
   // ws.send('something');
@@ -82,13 +97,11 @@ function drawCircle(cursorX: number, cursorY: number, radius: number) {
 
   for (let Y = cursorY; Y <= cursorY + 2 * radius; Y++) {
     const X = Math.sqrt(Math.pow(radius, 2) - Math.pow(Y - center.y, 2)) + center.x;
-    console.log(X, Y);
     robot.dragMouse(X, Y);
   }
 
   for (let Y = cursorY + 2 * radius; Y >= cursorY; Y--) {
     const X = center.x - Math.sqrt(Math.pow(radius, 2) - Math.pow(Y - center.y, 2));
-    console.log(X, Y);
     robot.dragMouse(X, Y);
   }
 
@@ -120,4 +133,31 @@ function drawRectangle(cursorX: number, cursorY: number, width: number, length: 
   robot.moveMouseSmooth(cursorX, cursorY + length);
   robot.moveMouseSmooth(cursorX, cursorY);
   robot.mouseToggle('up');
+}
+
+async function makePrintScreen(ws: WebSocket, x: number, y: number) {
+  //********** */
+  // const img = robot.screen.capture(x, y, 200, 200).image;
+  // console.log(img);
+  // const image = await Jimp.read(img);
+  // const buffer = await image.getBase64Async(Jimp.MIME_PNG);
+  // console.log(buffer);
+  ///************ */
+  // Jimp.read(img).then((image) => {
+  //   image.getBase64(Jimp.AUTO, (error, res) => {
+  //     console.log(res);
+  //   });
+  // });
+
+  const size: number = 100;
+  const image = robot.screen.capture(x - size, y - size, size * 2, size * 2);
+  const jimp = new Jimp({
+    data: image.image,
+    width: image.width,
+    height: image.height,
+  });
+
+  const base64Image = await jimp.getBase64Async(Jimp.MIME_PNG);
+  const base64String = base64Image.split(',')[1];
+  return base64String;
 }
